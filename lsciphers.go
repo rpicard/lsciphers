@@ -54,7 +54,7 @@ func ssl2() {
     // [2] - certificate type
 
     // [3,4] - ssl version 0x00, 0x02
-    if binary.BigEndian.Uint16(serverHello[3:5]) != 0x02 {
+    if binary.BigEndian.Uint16(serverHello[3:5]) != 0x0002 {
         noSSL2("bad version")
         return
     }
@@ -64,10 +64,17 @@ func ssl2() {
     // [7,8] - cipher spec length
     cipherSpecLength := binary.BigEndian.Uint16(serverHello[7:9])
 
-    if cipherSpecLength == 0 {
+    // if no ciphers are supported we can just stop now
+    if cipherSpecLength == 0x0000 {
         noSSL2("no ciphers supported")
+        return
     }
 
+    // each cipher is 3 bytes, so cipher spec length % 3 should == 0
+    if cipherSpecLength % 3 != 0 {
+        noSSL2("funky cipher spec length")
+        return
+    }
 
 }
 
