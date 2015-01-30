@@ -2,11 +2,11 @@ package main
 
 import "net"
 import "fmt"
-
+import "encoding/binary"
 
 func main() {
 
-    const SSL2_HELLO := []uint8{
+    SSL2_HELLO := []byte{
         0x80, 0x2e,                 // record length
         0x01,                       // client hello
         0x00, 0x02,                 // version
@@ -26,20 +26,21 @@ func main() {
         0xde, 0xad, 0xbe, 0xef,
     }
 
-    // Read the host:port from ARGV
-
-    // Try connecting with each protocol
-
     conn, _ := net.Dial("tcp", "secure.goywam.com:443")
 
     conn.Write(SSL2_HELLO)
 
-    response := make([]uint8, 32)
-    conn.Read(response)
+    lengthBytes := make([]byte, 2)
+    conn.Read(lengthBytes)
 
-    fmt.Printf("% X\n", response)
+    serverHelloLength := binary.LittleEndian.Uint16(lengthBytes)
 
-        // Try connecting with each cipher suite
+    serverHello := make([]byte, serverHelloLength)
+    conn.Read(serverHello)
 
-    // Print out which cipher suites work for which protocols
+    fmt.Printf("% X\n", serverHello)
+}
+
+func getSSL2CipherData(serverHello []byte) {
+
 }
