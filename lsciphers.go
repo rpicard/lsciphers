@@ -5,6 +5,10 @@ import "fmt"
 import "encoding/binary"
 
 func main() {
+    ssl2()
+}
+
+func ssl2() {
 
     SSL2_HELLO := []byte{
         0x80, 0x2e,                 // record length
@@ -28,19 +32,50 @@ func main() {
 
     conn, _ := net.Dial("tcp", "secure.goywam.com:443")
 
+    // send the client hello
     conn.Write(SSL2_HELLO)
 
+    // get the length of the server hello
     lengthBytes := make([]byte, 2)
     conn.Read(lengthBytes)
+    serverHelloLength := binary.BigEndian.Uint16(lengthBytes)
 
-    serverHelloLength := binary.LittleEndian.Uint16(lengthBytes)
-
+    // get the server hello
     serverHello := make([]byte, serverHelloLength)
     conn.Read(serverHello)
 
-    fmt.Printf("% X\n", serverHello)
+    // [0] - server hello should be 0x04
+    if serverHello[0] != 0x04 {
+        noSSL2("No server hello")
+        return
+    }
+
+    // [1] - session id hit
+    // [2] - certificate type
+
+    // [3,4] - ssl version 0x00, 0x02
+    if binary.BigEndian.Uint16(serverHello[3:5]) != 0x02 {
+        noSSL2("bad version")
+        return
+    }
+
+    // [5,6] - cert length
+
+    // [7,8] - cipher spec length
+    cipherSpecLength := binary.BigEndian.Uint16(serverHello[7:9])
+
+    if cipherSpecLength == 0 {
+        noSSL2("no ciphers supported")
+    }
+
+
 }
 
 func getSSL2CipherData(serverHello []byte) {
 
+}
+
+func noSSL2(reason string) {
+    fmt.Printf("No SSL2 support:\t%v\n", reason)
+    return
 }
