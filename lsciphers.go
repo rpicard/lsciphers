@@ -6,7 +6,7 @@ import "fmt"
 
 func main() {
 
-    SSL2_HELLO := []uint8{
+    const SSL2_HELLO := []uint8{
         0x80, 0x2e,                 // record length
         0x01,                       // client hello
         0x00, 0x02,                 // version
