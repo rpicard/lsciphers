@@ -1,3 +1,8 @@
+package main
+
+import "net"
+import "fmt"
+
 func make_ssl2_hello(cipher []uint8) []byte {
 
     x := make([]uint8, 28)
@@ -41,13 +46,22 @@ func make_ssl2_hello(cipher []uint8) []byte {
     return x
 }
 
-// Read the host:port from ARGV
 
-// Try connecting with each protocol
+func main() {
+    // Read the host:port from ARGV
 
-conn, err := net.Dial("tcp", "duckduckgo.com:443")
-fmt.Fprintf(conn, 
+    // Try connecting with each protocol
 
-    // Try connecting with each cipher suite
+    conn, _ := net.Dial("tcp", "duckduckgo.com:443")
 
-// Print out which cipher suites work for which protocols
+    conn.Write(make_ssl2_hello([]uint8{0x01, 0x00, 0x80}))
+
+    response := make([]uint8, 32)
+    conn.Read(response)
+
+    fmt.Printf("% X\n", response)
+
+        // Try connecting with each cipher suite
+
+    // Print out which cipher suites work for which protocols
+}
