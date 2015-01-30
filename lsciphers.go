@@ -5,10 +5,10 @@ import "fmt"
 import "encoding/binary"
 
 func main() {
-    ssl2()
+    check_ssl2()
 }
 
-func ssl2() {
+func check_ssl2() {
 
     SSL2_HELLO := []byte{
         0x80, 0x2e,                 // record length
@@ -30,7 +30,17 @@ func ssl2() {
         0xde, 0xad, 0xbe, 0xef,
     }
 
-    conn, _ := net.Dial("tcp", "secure.goywam.com:443")
+    SSL2_CIPHERS := map[uint32]string{
+        65664:      "SSL_CK_RC4_128_WITH_MD5",
+        131200:     "SSL_CK_RC4_128_EXPORT40_WITH_MD5",
+        196736:     "SSL_CK_RC2_128_CBC_WITH_MD5",
+        262272:     "SSL_CK_RC2_128_CBC_EXPORT40_WITH_MD5",
+        327808:     "SSL_CK_IDEA_128_CBC_WITH_MD5",
+        393280:     "SSL_CK_DES_64_CBC_WITH_MD5",
+        458944:     "SSL_CK_DES_192_EDE3_CBC_WITH_MD5",
+    }
+
+    conn, _ := net.Dial("tcp", "mpi.mb.ca:443")
 
     // send the client hello
     conn.Write(SSL2_HELLO)
@@ -60,6 +70,9 @@ func ssl2() {
     }
 
     // [5,6] - cert length
+    certLength := binary.BigEndian.Uint16(serverHello[5:7]) / 8
+
+    fmt.Println(certLength)
 
     // [7,8] - cipher spec length
     cipherSpecLength := binary.BigEndian.Uint16(serverHello[7:9])
@@ -67,7 +80,7 @@ func ssl2() {
     // if no ciphers are supported we can just stop now
     if cipherSpecLength == 0x0000 {
         noSSL2("no ciphers supported")
-        return
+        //return
     }
 
     // each cipher is 3 bytes, so cipher spec length % 3 should == 0
@@ -76,9 +89,23 @@ func ssl2() {
         return
     }
 
-}
+    // [9,10] - connection id length
 
-func getSSL2CipherData(serverHello []byte) {
+    // [11: 11+certLength] - certificate data
+
+    // [11+certLength+1: (11+certLength+1) cipherSpecLength] - cipher spec data
+    cipherSpecData := serverHello[11 + certLength + 1: 11 + certLength + 1 + cipherSpecLength]
+
+    for i := uint16(0); i < cipherSpecLength; i += 3 {
+        cipherBytes := make([]byte, 4)
+        cipherBytes[1] = cipherSpecData[i]
+        cipherBytes[2] = cipherSpecData[i+1]
+        cipherBytes[3] = cipherSpecData[i+2]
+        fmt.Printf("% X", cipherBytes)
+        cipher := binary.LittleEndian.Uint32(cipherBytes)
+        fmt.Println(SSL2_CIPHERS[cipher])
+
+    }
 
 }
 
@@ -86,3 +113,4 @@ func noSSL2(reason string) {
     fmt.Printf("No SSL2 support:\t%v\n", reason)
     return
 }
+
