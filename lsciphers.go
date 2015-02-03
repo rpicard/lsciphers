@@ -45,6 +45,32 @@ func list_ssl3() {
         0x001d: "SSL_FORTEZZA_KEA_WITH_FORTEZZA_CBC_SHA",
         0x001e: "SSL_FORTEZZA_KEA_WITH_RC4_128_SHA",
     }
+
+    SSL3_HELLO_TEMPLATE := []byte{
+        0x16,                       // content type: handshake
+        0x03, 0x00,                 // version: ssl 3.0
+        0x00, 0x2e,                 // length: 46
+        0x01,                       // handshake type: client hello 
+        0x00, 0x00, 0x2a,           // length: 42
+        0x30, 0x00,                 // version: ssl 3.0
+        0xde, 0xad, 0xbe, 0xef,     // random: timestamp
+        0xde, 0xad, 0xbe, 0xef,     // random: 28 bytes
+        0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef,
+        0x00,                       // session id length
+        0x02,                       // cipher suites length
+        0x00, 0x00,                 // cipher suites (to be replaced)
+        0x01,                       // compression methods length
+        0x00,                       // compression methods
+    }
+
+
+
+
     return
 }
 
