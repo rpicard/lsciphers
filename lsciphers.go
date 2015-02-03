@@ -6,10 +6,15 @@ import "encoding/binary"
 import "io"
 
 func main() {
-    check_ssl2()
+    list_ssl2()
+    list_ssl3()
 }
 
-func check_ssl2() {
+func list_ssl3() {
+    return
+}
+
+func list_ssl2() {
 
     SSL2_HELLO := []byte{
         0x80, 0x2e,                 // record length
@@ -32,13 +37,13 @@ func check_ssl2() {
     }
 
     SSL2_CIPHERS := map[uint32]string{
-        65664:      "SSL_CK_RC4_128_WITH_MD5",
-        131200:     "SSL_CK_RC4_128_EXPORT40_WITH_MD5",
-        196736:     "SSL_CK_RC2_128_CBC_WITH_MD5",
-        262272:     "SSL_CK_RC2_128_CBC_EXPORT40_WITH_MD5",
-        327808:     "SSL_CK_IDEA_128_CBC_WITH_MD5",
-        393280:     "SSL_CK_DES_64_CBC_WITH_MD5",
-        458944:     "SSL_CK_DES_192_EDE3_CBC_WITH_MD5",
+        0x010080:      "SSL_CK_RC4_128_WITH_MD5",
+        0x020080:     "SSL_CK_RC4_128_EXPORT40_WITH_MD5",
+        0x030080:     "SSL_CK_RC2_128_CBC_WITH_MD5",
+        0x040080:     "SSL_CK_RC2_128_CBC_EXPORT40_WITH_MD5",
+        0x050080:     "SSL_CK_IDEA_128_CBC_WITH_MD5",
+        0x060040:     "SSL_CK_DES_64_CBC_WITH_MD5",
+        0x0700c0:     "SSL_CK_DES_192_EDE3_CBC_WITH_MD5",
     }
 
     conn, _ := net.Dial("tcp", "mpi.mb.ca:443")
