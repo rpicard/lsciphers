@@ -3,6 +3,7 @@ package main
 import "net"
 import "fmt"
 import "encoding/binary"
+import "io"
 
 func main() {
     check_ssl2()
@@ -47,12 +48,12 @@ func check_ssl2() {
 
     // get the length of the server hello
     lengthBytes := make([]byte, 2)
-    conn.Read(lengthBytes)
-    serverHelloLength := binary.BigEndian.Uint16(lengthBytes)
+    io.ReadFull(conn, lengthBytes)
+    serverHelloLength := ((uint16(lengthBytes[0]) & uint16(0x7f)) << 8) | uint16(lengthBytes[1])
 
     // get the server hello
     serverHello := make([]byte, serverHelloLength)
-    conn.Read(serverHello)
+    io.ReadFull(conn, serverHello)
 
     // [0] - server hello should be 0x04
     if serverHello[0] != 0x04 {
@@ -70,9 +71,7 @@ func check_ssl2() {
     }
 
     // [5,6] - cert length
-    certLength := binary.BigEndian.Uint16(serverHello[5:7]) / 8
-
-    fmt.Println(certLength)
+    certLength := binary.BigEndian.Uint16(serverHello[5:7])
 
     // [7,8] - cipher spec length
     cipherSpecLength := binary.BigEndian.Uint16(serverHello[7:9])
@@ -93,16 +92,15 @@ func check_ssl2() {
 
     // [11: 11+certLength] - certificate data
 
-    // [11+certLength+1: (11+certLength+1) cipherSpecLength] - cipher spec data
-    cipherSpecData := serverHello[11 + certLength + 1: 11 + certLength + 1 + cipherSpecLength]
+    // [11+certLength: (11+certLength) + cipherSpecLength] - cipher spec data
+    cipherSpecData := serverHello[11 + certLength: 11 + certLength + cipherSpecLength]
 
     for i := uint16(0); i < cipherSpecLength; i += 3 {
         cipherBytes := make([]byte, 4)
         cipherBytes[1] = cipherSpecData[i]
         cipherBytes[2] = cipherSpecData[i+1]
         cipherBytes[3] = cipherSpecData[i+2]
-        fmt.Printf("% X", cipherBytes)
-        cipher := binary.LittleEndian.Uint32(cipherBytes)
+        cipher := binary.BigEndian.Uint32(cipherBytes)
         fmt.Println(SSL2_CIPHERS[cipher])
 
     }
