@@ -8,6 +8,89 @@ import "io"
 func main() {
     list_ssl2()
     list_ssl3()
+    list_tls10()
+}
+
+func list_tls10() {
+
+    TLS10_CIPHERS := map[uint16]string{
+        0x0000: "TLS_NULL_WITH_NULL_NULL",
+        0x0001: "TLS_RSA_WITH_NULL_MD5",
+        0x0002: "TLS_RSA_WITH_NULL_SHA",
+        0x0003: "TLS_RSA_EXPORT_WITH_RC4_40_MD5",
+        0x0004: "TLS_RSA_WITH_RC4_128_MD5",
+        0x0005: "TLS_RSA_WITH_RC4_128_SHA",
+        0x0006: "TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5",
+        0x0007: "TLS_RSA_WITH_IDEA_CBC_SHA",
+        0x0008: "TLS_RSA_EXPORT_WITH_DES40_CBC_SHA",
+        0x0009: "TLS_RSA_WITH_DES_CBC_SHA",
+        0x000a: "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
+        0x000b: "TLS_DH_DSS_EXPORT_WITH_DES40_CBC_SHA",
+        0x000c: "TLS_DH_DSS_WITH_DES_CBC_SHA",
+        0x000d: "TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA",
+        0x000e: "TLS_DH_RSA_EXPORT_WITH_DES40_CBC_SHA",
+        0x000f: "TLS_DH_RSA_WITH_DES_CBC_SHA",
+        0x0010: "TLS_DH_RSA_WITH_3DES_EDE_CBC_SHA",
+        0x0011: "TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA",
+        0x0012: "TLS_DHE_DSS_WITH_DES_CBC_SHA",
+        0x0013: "TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA",
+        0x0014: "TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA",
+        0x0015: "TLS_DHE_RSA_WITH_DES_CBC_SHA",
+        0x0016: "TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA",
+        0x0017: "TLS_DH_anon_EXPORT_WITH_RC4_40_MD5",
+        0x0018: "TLS_DH_anon_WITH_RC4_128_MD5",
+        0x0019: "TLS_DH_anon_EXPORT_WITH_DES40_CBC_SHA",
+        0x001a: "TLS_DH_anon_WITH_DES_CBC_SHA",
+        0x001b: "TLS_DH_anon_WITH_3DES_EDE_CBC_SHA",
+    }
+
+    TLS10_HELLO_TEMPLATE := []byte{
+        0x16,                       // content type: handshake
+        0x03, 0x01,                 // version: tls 1.0
+        0x00, 0x2d,                 // length: 46
+        0x01,                       // handshake type: client hello
+        0x00, 0x00, 0x29,           // length: 42
+        0x03, 0x01,                 // version: tls 1.0
+        0xde, 0xad, 0xbe, 0xef,     // random: timestamp
+        0xde, 0xad, 0xbe, 0xef,     // random: 28 bytes
+        0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef,
+        0x00,                       // session id length
+        0x00, 0x02,                 // cipher suites length
+        0x00, 0x00,                 // cipher suites (to be replaced) (location is [46, 47])
+        0x01,                       // compression methods length
+        0x00,                       // compression methods
+    }
+
+    for key, value := range TLS10_CIPHERS {
+
+        // create a new copy of the hello from the template
+        TLS10_HELLO := make([]byte, len(TLS10_HELLO_TEMPLATE))
+        copy(TLS10_HELLO, TLS10_HELLO_TEMPLATE)
+
+        // set the cipher suite we want to check
+        cipherBytes := make([]byte, 2)
+        binary.BigEndian.PutUint16(cipherBytes, key)
+        TLS10_HELLO[46] = cipherBytes[0]
+        TLS10_HELLO[47] = cipherBytes[1]
+
+        conn, _ := net.Dial("tcp", "wm.uncommongoods.com:443")
+
+        conn.Write(TLS10_HELLO)
+
+        contentType := make([]byte, 1)
+        io.ReadFull(conn, contentType)
+
+        if contentType[0] == byte(0x16) {
+            fmt.Println(value)
+        }
+    }
+
+    return
 }
 
 func list_ssl3() {
