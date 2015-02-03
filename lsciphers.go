@@ -50,7 +50,7 @@ func list_ssl3() {
         0x16,                       // content type: handshake
         0x03, 0x00,                 // version: ssl 3.0
         0x00, 0x2e,                 // length: 46
-        0x01,                       // handshake type: client hello 
+        0x01,                       // handshake type: client hello
         0x00, 0x00, 0x2a,           // length: 42
         0x30, 0x00,                 // version: ssl 3.0
         0xde, 0xad, 0xbe, 0xef,     // random: timestamp
@@ -63,13 +63,31 @@ func list_ssl3() {
         0xde, 0xad, 0xbe, 0xef,
         0x00,                       // session id length
         0x02,                       // cipher suites length
-        0x00, 0x00,                 // cipher suites (to be replaced)
+        0x00, 0x00,                 // cipher suites (to be replaced) (location is [45, 46])
         0x01,                       // compression methods length
         0x00,                       // compression methods
     }
 
+    for key, value := range SSL3_CIPHERS {
+
+        // create a new copy of the hello from the template
+        SSL3_HELLO := make([]byte, len(SSL3_HELLO_TEMPLATE))
+        copy(SSL3_HELLO, SSL3_HELLO_TEMPLATE)
+
+        // set the cipher suite we want to check
+        cipherBytes := make([]byte, 2)
+        binary.BigEndian.PutUint16(cipherBytes, key)
+        SSL3_HELLO[45] = cipherBytes[0]
+        SSL3_HELLO[46] = cipherBytes[1]
+
+        conn, _ := net.Dial("tcp", "google.com:443")
+
+        conn.Write(SSL3_HELLO)
+
+        var _ = value
 
 
+    }
 
     return
 }
