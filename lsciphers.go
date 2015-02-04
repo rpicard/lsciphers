@@ -46,15 +46,68 @@ func main() {
 
 }
 
+func list_tls12() []string {
+
+    TLS11_HELLO_TEMPLATE := []byte{
+        0x16,                       // content type: handshake
+        0x03, 0x03,                 // version: tls 1.2
+        0x00, 0x2d,                 // length: 46
+        0x01,                       // handshake type: client hello
+        0x00, 0x00, 0x29,           // length: 42
+        0x03, 0x03,                 // version: tls 1.2
+        0xde, 0xad, 0xbe, 0xef,     // random: timestamp
+        0xde, 0xad, 0xbe, 0xef,     // random: 28 bytes
+        0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef,
+        0xde, 0xad, 0xbe, 0xef,
+        0x00,                       // session id length
+        0x00, 0x02,                 // cipher suites length
+        0x00, 0x00,                 // cipher suites (to be replaced) (location is [46, 47])
+        0x01,                       // compression methods length
+        0x00,                       // compression methods
+    }
+
+    var supported_ciphers []string
+
+    for key, value := range TLS_CIPHERS {
+
+        // create a new copy of the hello from the template
+        TLS11_HELLO := make([]byte, len(TLS11_HELLO_TEMPLATE))
+        copy(TLS11_HELLO, TLS11_HELLO_TEMPLATE)
+
+        // set the cipher suite we want to check
+        cipherBytes := make([]byte, 2)
+        binary.BigEndian.PutUint16(cipherBytes, key)
+        TLS11_HELLO[46] = cipherBytes[0]
+        TLS11_HELLO[47] = cipherBytes[1]
+
+        conn, _ := net.Dial("tcp", "wm.uncommongoods.com:443")
+
+        conn.Write(TLS11_HELLO)
+
+        contentType := make([]byte, 1)
+        io.ReadFull(conn, contentType)
+
+        if contentType[0] == byte(0x16) {
+            supported_ciphers = append(supported_ciphers, value)
+        }
+    }
+
+    return supported_ciphers
+}
+
 func list_tls11() []string {
 
     TLS10_HELLO_TEMPLATE := []byte{
         0x16,                       // content type: handshake
-        0x03, 0x01,                 // version: tls 1.0
+        0x03, 0x02,                 // version: tls 1.1
         0x00, 0x2d,                 // length: 46
         0x01,                       // handshake type: client hello
         0x00, 0x00, 0x29,           // length: 42
-        0x03, 0x01,                 // version: tls 1.0
+        0x03, 0x02,                 // version: tls 1.1
         0xde, 0xad, 0xbe, 0xef,     // random: timestamp
         0xde, 0xad, 0xbe, 0xef,     // random: 28 bytes
         0xde, 0xad, 0xbe, 0xef,
