@@ -1,6 +1,6 @@
 # lsciphers
 
-The purpose of this is to print out the list of ciphers supported by a host. That's all it does. I don't plan on adding more features. I'm trying to "do one thing well."
+The purpose of this tool is to print out the list of ciphers supported by a host. That's all it does. I don't plan on adding more features. I'm trying to "do one thing well."
 
 Running it looks something like `go run lsciphers.go -target duckduckgo.com:443`.
 
@@ -12,4 +12,4 @@ The tool works by sending client hello messages to see what ciphersuites the ser
 
 Ciphersuites supported in SSL 3.0 have the `SSL_` prefix from [RFC 6101](https://tools.ietf.org/html/rfc6101), so if you want to make sure a server isn't supporting SSL at all you can `grep` the output for `SSL`.
 
-Pull requests and issues are welcome.
+Pull requests and issues are welcome. I do plan on maintaining this tool.
