@@ -5,14 +5,11 @@ import "fmt"
 import "encoding/binary"
 import "io"
 import "sync"
-import "flag"
+import "os"
 
 func main() {
 
-    var target string
-
-    flag.StringVar(&target, "target", "", "the host:port to check")
-    flag.Parse()
+    target := os.Args[1]
 
     ret := make(chan string, 1000)
     var wg sync.WaitGroup

@@ -2,7 +2,7 @@
 
 The purpose of this tool is to print out the list of ciphers supported by a host. That's all it does. I don't plan on adding more features. I'm trying to "do one thing well."
 
-Running it looks something like `go run lsciphers.go -target duckduckgo.com:443`.
+Running it looks something like `go run lsciphers.go duckduckgo.com:443`.
 
 `-target` is the only option.
 
