@@ -4,8 +4,6 @@ The purpose of this tool is to print out the list of ciphers supported by a host
 
 Running it looks something like `go run lsciphers.go duckduckgo.com:443`.
 
-`-target` is the only option.
-
 The code is messy and could use some cleaning up. I might do this.
 
 The tool works by sending client hello messages to see what ciphersuites the server supports for each version of the protocol. As far as I know, it checks all of the ciphersuites. I got the list from here: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4
