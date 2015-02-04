@@ -6,13 +6,13 @@ import "encoding/binary"
 import "io"
 
 func main() {
-    list_ssl2()
-    list_ssl3()
+    ssl2_ciphers := list_ssl2()
+    ssl3_ciphers := list_ssl3()
     tls10_ciphers := list_tls10()
 
-    var TLSCiphersSupported map[string]bool
+    var TLSCiphersSupported = map[string]bool{}
 
-    for s := range tls10_ciphers {
+    for _, s := range tls10_ciphers {
 
         _, ok := TLSCiphersSupported[s]
 
@@ -21,6 +21,25 @@ func main() {
         }
     }
 
+    for _, s := range ssl3_ciphers {
+
+        _, ok := TLSCiphersSupported[s]
+
+        if ! ok {
+            TLSCiphersSupported[s] = true
+        }
+    }
+
+    for _, s := range ssl2_ciphers {
+
+        _, ok := TLSCiphersSupported[s]
+
+        if ! ok {
+            TLSCiphersSupported[s] = true
+        }
+    }
+
+    // print out all of the ciphers
     for s := range TLSCiphersSupported {
         fmt.Println(s)
     }
@@ -73,14 +92,14 @@ func list_tls11() []string {
         io.ReadFull(conn, contentType)
 
         if contentType[0] == byte(0x16) {
-            append(supported_ciphers, value)
+            supported_ciphers = append(supported_ciphers, value)
         }
     }
 
     return supported_ciphers
 }
 
-func list_tls10() {
+func list_tls10() []string {
 
     TLS10_HELLO_TEMPLATE := []byte{
         0x16,                       // content type: handshake
@@ -126,14 +145,14 @@ func list_tls10() {
         io.ReadFull(conn, contentType)
 
         if contentType[0] == byte(0x16) {
-            append(supported_ciphers, value)
+            supported_ciphers = append(supported_ciphers, value)
         }
     }
 
-    return
+    return supported_ciphers
 }
 
-func list_ssl3() {
+func list_ssl3() []string {
 
     SSL3_CIPHERS := map[uint16]string{
         0x0000: "SSL_NULL_WITH_NULL_NULL",
@@ -191,6 +210,8 @@ func list_ssl3() {
         0x00,                       // compression methods
     }
 
+    var supported_ciphers []string
+
     for key, value := range SSL3_CIPHERS {
 
         // create a new copy of the hello from the template
@@ -211,14 +232,14 @@ func list_ssl3() {
         io.ReadFull(conn, contentType)
 
         if contentType[0] == byte(0x16) {
-            fmt.Println(value)
+            supported_ciphers = append(supported_ciphers, value)
         }
     }
 
-    return
+    return supported_ciphers
 }
 
-func list_ssl2() {
+func list_ssl2() []string {
 
     SSL2_HELLO := []byte{
         0x80, 0x2e,                 // record length
@@ -250,6 +271,9 @@ func list_ssl2() {
         0x0700c0:     "SSL_CK_DES_192_EDE3_CBC_WITH_MD5",
     }
 
+    var supported_ciphers []string
+
+
     conn, _ := net.Dial("tcp", "mpi.mb.ca:443")
 
     // send the client hello
@@ -266,8 +290,7 @@ func list_ssl2() {
 
     // [0] - server hello should be 0x04
     if serverHello[0] != 0x04 {
-        noSSL2("No server hello")
-        return
+        return []string{}
     }
 
     // [1] - session id hit
@@ -275,8 +298,7 @@ func list_ssl2() {
 
     // [3,4] - ssl version 0x00, 0x02
     if binary.BigEndian.Uint16(serverHello[3:5]) != 0x0002 {
-        noSSL2("bad version")
-        return
+        return []string{}
     }
 
     // [5,6] - cert length
@@ -287,14 +309,12 @@ func list_ssl2() {
 
     // if no ciphers are supported we can just stop now
     if cipherSpecLength == 0x0000 {
-        noSSL2("no ciphers supported")
-        //return
+        return []string{}
     }
 
     // each cipher is 3 bytes, so cipher spec length % 3 should == 0
     if cipherSpecLength % 3 != 0 {
-        noSSL2("funky cipher spec length")
-        return
+        return []string{}
     }
 
     // [9,10] - connection id length
@@ -310,15 +330,12 @@ func list_ssl2() {
         cipherBytes[2] = cipherSpecData[i+1]
         cipherBytes[3] = cipherSpecData[i+2]
         cipher := binary.BigEndian.Uint32(cipherBytes)
-        fmt.Println(SSL2_CIPHERS[cipher])
+        supported_ciphers = append(supported_ciphers, SSL2_CIPHERS[cipher])
 
     }
 
-}
+    return supported_ciphers
 
-func noSSL2(reason string) {
-    fmt.Printf("No SSL2 support:\t%v\n", reason)
-    return
 }
 
 
