@@ -4,49 +4,43 @@ import "net"
 import "fmt"
 import "encoding/binary"
 import "io"
+import "sync"
+import "flag"
 
 func main() {
-    ssl2_ciphers := list_ssl2()
-    ssl3_ciphers := list_ssl3()
-    tls10_ciphers := list_tls10()
+
+    var target string
+
+    flag.StringVar(&target, "target", "", "the host:port to check")
+    flag.Parse()
+
+    ret := make(chan string, 1000)
+    var wg sync.WaitGroup
+
+    list_ssl2(target, ret, &wg)
+    list_ssl3(target, ret, &wg)
+    list_tls10(target, ret, &wg)
+    list_tls11(target, ret, &wg)
+    list_tls12(target, ret, &wg)
+
+    wg.Wait()
+
+    close(ret)
 
     var TLSCiphersSupported = map[string]bool{}
 
-    for _, s := range tls10_ciphers {
+    for s := range ret {
 
         _, ok := TLSCiphersSupported[s]
 
         if ! ok {
             TLSCiphersSupported[s] = true
+            fmt.Println(s)
         }
     }
-
-    for _, s := range ssl3_ciphers {
-
-        _, ok := TLSCiphersSupported[s]
-
-        if ! ok {
-            TLSCiphersSupported[s] = true
-        }
-    }
-
-    for _, s := range ssl2_ciphers {
-
-        _, ok := TLSCiphersSupported[s]
-
-        if ! ok {
-            TLSCiphersSupported[s] = true
-        }
-    }
-
-    // print out all of the ciphers
-    for s := range TLSCiphersSupported {
-        fmt.Println(s)
-    }
-
 }
 
-func list_tls12() []string {
+func list_tls12(target string, ret chan string, wg *sync.WaitGroup) {
 
     TLS11_HELLO_TEMPLATE := []byte{
         0x16,                       // content type: handshake
@@ -70,36 +64,42 @@ func list_tls12() []string {
         0x00,                       // compression methods
     }
 
-    var supported_ciphers []string
-
     for key, value := range TLS_CIPHERS {
 
-        // create a new copy of the hello from the template
-        TLS11_HELLO := make([]byte, len(TLS11_HELLO_TEMPLATE))
-        copy(TLS11_HELLO, TLS11_HELLO_TEMPLATE)
+        wg.Add(1)
+        go func(key uint16, value string) {
 
-        // set the cipher suite we want to check
-        cipherBytes := make([]byte, 2)
-        binary.BigEndian.PutUint16(cipherBytes, key)
-        TLS11_HELLO[46] = cipherBytes[0]
-        TLS11_HELLO[47] = cipherBytes[1]
+            // create a new copy of the hello from the template
+            TLS11_HELLO := make([]byte, len(TLS11_HELLO_TEMPLATE))
+            copy(TLS11_HELLO, TLS11_HELLO_TEMPLATE)
 
-        conn, _ := net.Dial("tcp", "wm.uncommongoods.com:443")
+            // set the cipher suite we want to check
+            cipherBytes := make([]byte, 2)
+            binary.BigEndian.PutUint16(cipherBytes, key)
+            TLS11_HELLO[46] = cipherBytes[0]
+            TLS11_HELLO[47] = cipherBytes[1]
 
-        conn.Write(TLS11_HELLO)
+            conn, _ := net.Dial("tcp", target)
 
-        contentType := make([]byte, 1)
-        io.ReadFull(conn, contentType)
+            conn.Write(TLS11_HELLO)
 
-        if contentType[0] == byte(0x16) {
-            supported_ciphers = append(supported_ciphers, value)
-        }
+            contentType := make([]byte, 1)
+            io.ReadFull(conn, contentType)
+
+            if contentType[0] == byte(0x16) {
+                // send the supported cipher back to the channel
+                ret <- value
+            }
+
+            wg.Done()
+
+        }(key, value)
     }
 
-    return supported_ciphers
+    return
 }
 
-func list_tls11() []string {
+func list_tls11(target string, ret chan string, wg *sync.WaitGroup) {
 
     TLS10_HELLO_TEMPLATE := []byte{
         0x16,                       // content type: handshake
@@ -123,36 +123,40 @@ func list_tls11() []string {
         0x00,                       // compression methods
     }
 
-    var supported_ciphers []string
-
     for key, value := range TLS_CIPHERS {
 
-        // create a new copy of the hello from the template
-        TLS10_HELLO := make([]byte, len(TLS10_HELLO_TEMPLATE))
-        copy(TLS10_HELLO, TLS10_HELLO_TEMPLATE)
+        wg.Add(1)
+        go func(key uint16, value string) {
 
-        // set the cipher suite we want to check
-        cipherBytes := make([]byte, 2)
-        binary.BigEndian.PutUint16(cipherBytes, key)
-        TLS10_HELLO[46] = cipherBytes[0]
-        TLS10_HELLO[47] = cipherBytes[1]
+            // create a new copy of the hello from the template
+            TLS10_HELLO := make([]byte, len(TLS10_HELLO_TEMPLATE))
+            copy(TLS10_HELLO, TLS10_HELLO_TEMPLATE)
 
-        conn, _ := net.Dial("tcp", "wm.uncommongoods.com:443")
+            // set the cipher suite we want to check
+            cipherBytes := make([]byte, 2)
+            binary.BigEndian.PutUint16(cipherBytes, key)
+            TLS10_HELLO[46] = cipherBytes[0]
+            TLS10_HELLO[47] = cipherBytes[1]
 
-        conn.Write(TLS10_HELLO)
+            conn, _ := net.Dial("tcp", target)
 
-        contentType := make([]byte, 1)
-        io.ReadFull(conn, contentType)
+            conn.Write(TLS10_HELLO)
 
-        if contentType[0] == byte(0x16) {
-            supported_ciphers = append(supported_ciphers, value)
-        }
+            contentType := make([]byte, 1)
+            io.ReadFull(conn, contentType)
+
+            if contentType[0] == byte(0x16) {
+                ret <- value
+            }
+
+            wg.Done()
+        }(key, value)
     }
 
-    return supported_ciphers
+    return
 }
 
-func list_tls10() []string {
+func list_tls10(target string, ret chan string, wg *sync.WaitGroup) {
 
     TLS10_HELLO_TEMPLATE := []byte{
         0x16,                       // content type: handshake
@@ -176,36 +180,40 @@ func list_tls10() []string {
         0x00,                       // compression methods
     }
 
-    var supported_ciphers []string
-
     for key, value := range TLS_CIPHERS {
 
-        // create a new copy of the hello from the template
-        TLS10_HELLO := make([]byte, len(TLS10_HELLO_TEMPLATE))
-        copy(TLS10_HELLO, TLS10_HELLO_TEMPLATE)
+        wg.Add(1)
+        go func(key uint16, value string) {
+            // create a new copy of the hello from the template
+            TLS10_HELLO := make([]byte, len(TLS10_HELLO_TEMPLATE))
+            copy(TLS10_HELLO, TLS10_HELLO_TEMPLATE)
 
-        // set the cipher suite we want to check
-        cipherBytes := make([]byte, 2)
-        binary.BigEndian.PutUint16(cipherBytes, key)
-        TLS10_HELLO[46] = cipherBytes[0]
-        TLS10_HELLO[47] = cipherBytes[1]
+            // set the cipher suite we want to check
+            cipherBytes := make([]byte, 2)
+            binary.BigEndian.PutUint16(cipherBytes, key)
+            TLS10_HELLO[46] = cipherBytes[0]
+            TLS10_HELLO[47] = cipherBytes[1]
 
-        conn, _ := net.Dial("tcp", "wm.uncommongoods.com:443")
+            conn, _ := net.Dial("tcp", target)
 
-        conn.Write(TLS10_HELLO)
+            conn.Write(TLS10_HELLO)
 
-        contentType := make([]byte, 1)
-        io.ReadFull(conn, contentType)
+            contentType := make([]byte, 1)
+            io.ReadFull(conn, contentType)
 
-        if contentType[0] == byte(0x16) {
-            supported_ciphers = append(supported_ciphers, value)
-        }
+            if contentType[0] == byte(0x16) {
+                ret <- value
+            }
+
+            wg.Done()
+
+        }(key, value)
     }
 
-    return supported_ciphers
+    return
 }
 
-func list_ssl3() []string {
+func list_ssl3(target string, ret chan string, wg *sync.WaitGroup) {
 
     SSL3_CIPHERS := map[uint16]string{
         0x0000: "SSL_NULL_WITH_NULL_NULL",
@@ -263,36 +271,40 @@ func list_ssl3() []string {
         0x00,                       // compression methods
     }
 
-    var supported_ciphers []string
-
     for key, value := range SSL3_CIPHERS {
 
-        // create a new copy of the hello from the template
-        SSL3_HELLO := make([]byte, len(SSL3_HELLO_TEMPLATE))
-        copy(SSL3_HELLO, SSL3_HELLO_TEMPLATE)
+        wg.Add(1)
+        go func(key uint16, value string) {
+            // create a new copy of the hello from the template
+            SSL3_HELLO := make([]byte, len(SSL3_HELLO_TEMPLATE))
+            copy(SSL3_HELLO, SSL3_HELLO_TEMPLATE)
 
-        // set the cipher suite we want to check
-        cipherBytes := make([]byte, 2)
-        binary.BigEndian.PutUint16(cipherBytes, key)
-        SSL3_HELLO[46] = cipherBytes[0]
-        SSL3_HELLO[47] = cipherBytes[1]
+            // set the cipher suite we want to check
+            cipherBytes := make([]byte, 2)
+            binary.BigEndian.PutUint16(cipherBytes, key)
+            SSL3_HELLO[46] = cipherBytes[0]
+            SSL3_HELLO[47] = cipherBytes[1]
 
-        conn, _ := net.Dial("tcp", "google.com:443")
+            conn, _ := net.Dial("tcp", target)
 
-        conn.Write(SSL3_HELLO)
+            conn.Write(SSL3_HELLO)
 
-        contentType := make([]byte, 1)
-        io.ReadFull(conn, contentType)
+            contentType := make([]byte, 1)
+            io.ReadFull(conn, contentType)
 
-        if contentType[0] == byte(0x16) {
-            supported_ciphers = append(supported_ciphers, value)
-        }
+            if contentType[0] == byte(0x16) {
+                ret <- value
+            }
+
+            wg.Done()
+
+        }(key, value)
     }
 
-    return supported_ciphers
+    return
 }
 
-func list_ssl2() []string {
+func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
 
     SSL2_HELLO := []byte{
         0x80, 0x2e,                 // record length
@@ -324,10 +336,7 @@ func list_ssl2() []string {
         0x0700c0:     "SSL_CK_DES_192_EDE3_CBC_WITH_MD5",
     }
 
-    var supported_ciphers []string
-
-
-    conn, _ := net.Dial("tcp", "mpi.mb.ca:443")
+    conn, _ := net.Dial("tcp", target)
 
     // send the client hello
     conn.Write(SSL2_HELLO)
@@ -337,13 +346,17 @@ func list_ssl2() []string {
     io.ReadFull(conn, lengthBytes)
     serverHelloLength := ((uint16(lengthBytes[0]) & uint16(0x7f)) << 8) | uint16(lengthBytes[1])
 
+    if serverHelloLength < 1 {
+        return
+    }
+
     // get the server hello
     serverHello := make([]byte, serverHelloLength)
     io.ReadFull(conn, serverHello)
 
     // [0] - server hello should be 0x04
     if serverHello[0] != 0x04 {
-        return []string{}
+        return
     }
 
     // [1] - session id hit
@@ -351,7 +364,7 @@ func list_ssl2() []string {
 
     // [3,4] - ssl version 0x00, 0x02
     if binary.BigEndian.Uint16(serverHello[3:5]) != 0x0002 {
-        return []string{}
+        return
     }
 
     // [5,6] - cert length
@@ -362,12 +375,12 @@ func list_ssl2() []string {
 
     // if no ciphers are supported we can just stop now
     if cipherSpecLength == 0x0000 {
-        return []string{}
+        return
     }
 
     // each cipher is 3 bytes, so cipher spec length % 3 should == 0
     if cipherSpecLength % 3 != 0 {
-        return []string{}
+        return
     }
 
     // [9,10] - connection id length
@@ -383,12 +396,11 @@ func list_ssl2() []string {
         cipherBytes[2] = cipherSpecData[i+1]
         cipherBytes[3] = cipherSpecData[i+2]
         cipher := binary.BigEndian.Uint32(cipherBytes)
-        supported_ciphers = append(supported_ciphers, SSL2_CIPHERS[cipher])
+        ret <- SSL2_CIPHERS[cipher]
 
     }
 
-    return supported_ciphers
-
+    return
 }
 
 
