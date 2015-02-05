@@ -19,7 +19,7 @@ func main() {
         ciphers := list(target)
         fmt.Printf("%s:\n", target)
         for _, cipher := range ciphers {
-            fmt.Printf(" - %s\n", cipher)
+            fmt.Printf("  %s\n", cipher)
         }
         if len(ciphers) == 0 {
             fmt.Println("No ciphers matched.")
