@@ -1,16 +1,33 @@
 package main
 
-import "net"
-import "fmt"
-import "encoding/binary"
-import "io"
-import "sync"
-import "os"
+import (
+    "encoding/binary"
+    "fmt"
+    "io"
+    "net"
+    "os"
+    "sort"
+    "sync"
+)
 
 func main() {
+    if len(os.Args) < 2 {
+        fmt.Printf("Usage: %s <host>[:port]\n", os.Args[0])
+        os.Exit(1)
+    }
+    for _, target := range os.Args[1:] {
+        ciphers := list(target)
+        fmt.Printf("%s:\n", target)
+        for _, cipher := range ciphers {
+            fmt.Printf(" - %s\n", cipher)
+        }
+        if len(ciphers) == 0 {
+            fmt.Println("No ciphers matched.")
+        }
+    }
+}
 
-    target := os.Args[1]
-
+func list(target string) []string {
     ret := make(chan string, 1000)
     var wg sync.WaitGroup
 
@@ -19,22 +36,19 @@ func main() {
     list_tls10(target, ret, &wg)
     list_tls11(target, ret, &wg)
     list_tls12(target, ret, &wg)
-
     wg.Wait()
-
     close(ret)
 
-    var TLSCiphersSupported = map[string]bool{}
-
+    var ciphers []string
+    cipherSet := map[string]bool{}
     for s := range ret {
-
-        _, ok := TLSCiphersSupported[s]
-
-        if ! ok {
-            TLSCiphersSupported[s] = true
-            fmt.Println(s)
+        if _, ok := cipherSet[s]; !ok {
+            cipherSet[s] = true
+            ciphers = append(ciphers, s)
         }
     }
+    sort.Strings(ciphers)
+    return ciphers
 }
 
 func list_tls12(target string, ret chan string, wg *sync.WaitGroup) {
@@ -76,12 +90,18 @@ func list_tls12(target string, ret chan string, wg *sync.WaitGroup) {
             TLS11_HELLO[46] = cipherBytes[0]
             TLS11_HELLO[47] = cipherBytes[1]
 
-            conn, _ := net.Dial("tcp", target)
+            conn, err := net.Dial("tcp", target)
+            if err != nil {
+                fmt.Println(err)
+                wg.Done()
+                return
+            }
 
             conn.Write(TLS11_HELLO)
 
             contentType := make([]byte, 1)
             io.ReadFull(conn, contentType)
+            conn.Close()
 
             if contentType[0] == byte(0x16) {
                 // send the supported cipher back to the channel
@@ -135,12 +155,18 @@ func list_tls11(target string, ret chan string, wg *sync.WaitGroup) {
             TLS10_HELLO[46] = cipherBytes[0]
             TLS10_HELLO[47] = cipherBytes[1]
 
-            conn, _ := net.Dial("tcp", target)
+            conn, err := net.Dial("tcp", target)
+            if err != nil {
+                fmt.Println(err)
+                wg.Done()
+                return
+            }
 
             conn.Write(TLS10_HELLO)
 
             contentType := make([]byte, 1)
             io.ReadFull(conn, contentType)
+            conn.Close()
 
             if contentType[0] == byte(0x16) {
                 ret <- value
@@ -191,12 +217,18 @@ func list_tls10(target string, ret chan string, wg *sync.WaitGroup) {
             TLS10_HELLO[46] = cipherBytes[0]
             TLS10_HELLO[47] = cipherBytes[1]
 
-            conn, _ := net.Dial("tcp", target)
+            conn, err := net.Dial("tcp", target)
+            if err != nil {
+                fmt.Println(err)
+                wg.Done()
+                return
+            }
 
             conn.Write(TLS10_HELLO)
 
             contentType := make([]byte, 1)
             io.ReadFull(conn, contentType)
+            conn.Close()
 
             if contentType[0] == byte(0x16) {
                 ret <- value
@@ -282,12 +314,18 @@ func list_ssl3(target string, ret chan string, wg *sync.WaitGroup) {
             SSL3_HELLO[46] = cipherBytes[0]
             SSL3_HELLO[47] = cipherBytes[1]
 
-            conn, _ := net.Dial("tcp", target)
+            conn, err := net.Dial("tcp", target)
+            if err != nil {
+                fmt.Println(err)
+                wg.Done()
+                return
+            }
 
             conn.Write(SSL3_HELLO)
 
             contentType := make([]byte, 1)
             io.ReadFull(conn, contentType)
+            conn.Close()
 
             if contentType[0] == byte(0x16) {
                 ret <- value
@@ -333,7 +371,12 @@ func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
         0x0700c0:     "SSL_CK_DES_192_EDE3_CBC_WITH_MD5",
     }
 
-    conn, _ := net.Dial("tcp", target)
+    conn, err := net.Dial("tcp", target)
+    if err != nil {
+        fmt.Println(err)
+        wg.Done()
+        return
+    }
 
     // send the client hello
     conn.Write(SSL2_HELLO)
@@ -350,6 +393,7 @@ func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
     // get the server hello
     serverHello := make([]byte, serverHelloLength)
     io.ReadFull(conn, serverHello)
+    conn.Close()
 
     // [0] - server hello should be 0x04
     if serverHello[0] != 0x04 {
