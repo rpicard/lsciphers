@@ -63,6 +63,8 @@ func list(target string) []string {
 
 func list_tls12(target string, ret chan string, wg *sync.WaitGroup) {
 
+    defer wg.Done()
+
     TLS11_HELLO_TEMPLATE := []byte{
         0x16,                       // content type: handshake
         0x03, 0x03,                 // version: tls 1.2
@@ -100,7 +102,6 @@ func list_tls12(target string, ret chan string, wg *sync.WaitGroup) {
         conn, err := net.Dial("tcp", target)
         if err != nil {
             fmt.Println(err)
-            wg.Done()
             return
         }
 
@@ -117,12 +118,13 @@ func list_tls12(target string, ret chan string, wg *sync.WaitGroup) {
 
     }
 
-    wg.Done()
     return
 }
 
 func list_tls11(target string, ret chan string, wg *sync.WaitGroup) {
 
+    defer wg.Done()
+
     TLS10_HELLO_TEMPLATE := []byte{
         0x16,                       // content type: handshake
         0x03, 0x02,                 // version: tls 1.1
@@ -160,7 +162,6 @@ func list_tls11(target string, ret chan string, wg *sync.WaitGroup) {
         conn, err := net.Dial("tcp", target)
         if err != nil {
             fmt.Println(err)
-            wg.Done()
             return
         }
 
@@ -176,12 +177,13 @@ func list_tls11(target string, ret chan string, wg *sync.WaitGroup) {
 
     }
 
-    wg.Done()
     return
 }
 
 func list_tls10(target string, ret chan string, wg *sync.WaitGroup) {
 
+    defer wg.Done()
+
     TLS10_HELLO_TEMPLATE := []byte{
         0x16,                       // content type: handshake
         0x03, 0x01,                 // version: tls 1.0
@@ -219,7 +221,6 @@ func list_tls10(target string, ret chan string, wg *sync.WaitGroup) {
         conn, err := net.Dial("tcp", target)
         if err != nil {
             fmt.Println(err)
-            wg.Done()
             return
         }
 
@@ -234,11 +235,12 @@ func list_tls10(target string, ret chan string, wg *sync.WaitGroup) {
         }
     }
 
-    wg.Done()
     return
 }
 
 func list_ssl3(target string, ret chan string, wg *sync.WaitGroup) {
+
+    defer wg.Done()
 
     SSL3_CIPHERS := map[uint16]string{
         0x0000: "SSL_NULL_WITH_NULL_NULL",
@@ -311,7 +313,6 @@ func list_ssl3(target string, ret chan string, wg *sync.WaitGroup) {
         conn, err := net.Dial("tcp", target)
         if err != nil {
             fmt.Println(err)
-            wg.Done()
             return
         }
 
@@ -327,11 +328,12 @@ func list_ssl3(target string, ret chan string, wg *sync.WaitGroup) {
 
     }
 
-    wg.Done()
     return
 }
 
 func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
+
+    defer wg.Done()
 
     SSL2_HELLO := []byte{
         0x80, 0x2e,                 // record length
@@ -366,7 +368,6 @@ func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
     conn, err := net.Dial("tcp", target)
     if err != nil {
         fmt.Println(err)
-        wg.Done()
         return
     }
 
@@ -379,7 +380,6 @@ func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
     serverHelloLength := ((uint16(lengthBytes[0]) & uint16(0x7f)) << 8) | uint16(lengthBytes[1])
 
     if serverHelloLength < 1 {
-        wg.Done()
         return
     }
 
@@ -390,7 +390,6 @@ func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
 
     // [0] - server hello should be 0x04
     if serverHello[0] != 0x04 {
-        wg.Done()
         return
     }
 
@@ -399,7 +398,6 @@ func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
 
     // [3,4] - ssl version 0x00, 0x02
     if binary.BigEndian.Uint16(serverHello[3:5]) != 0x0002 {
-        wg.Done()
         return
     }
 
@@ -411,13 +409,11 @@ func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
 
     // if no ciphers are supported we can just stop now
     if cipherSpecLength == 0x0000 {
-        wg.Done()
         return
     }
 
     // each cipher is 3 bytes, so cipher spec length % 3 should == 0
     if cipherSpecLength % 3 != 0 {
-        wg.Done()
         return
     }
 
@@ -438,7 +434,6 @@ func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
 
     }
 
-    wg.Done()
     return
 }
 
