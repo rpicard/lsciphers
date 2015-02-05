@@ -16,6 +16,9 @@ func main() {
         os.Exit(1)
     }
     for _, target := range os.Args[1:] {
+        if _, _, err := net.SplitHostPort(target); err != nil {
+            target = net.JoinHostPort(target, "443")
+        }
         ciphers := list(target)
         fmt.Printf("%s:\n", target)
         for _, cipher := range ciphers {
