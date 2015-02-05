@@ -31,11 +31,21 @@ func list(target string) []string {
     ret := make(chan string, 1000)
     var wg sync.WaitGroup
 
-    list_ssl2(target, ret, &wg)
-    list_ssl3(target, ret, &wg)
-    list_tls10(target, ret, &wg)
-    list_tls11(target, ret, &wg)
-    list_tls12(target, ret, &wg)
+    wg.Add(1)
+    go list_ssl2(target, ret, &wg)
+
+    wg.Add(1)
+    go list_ssl3(target, ret, &wg)
+
+    wg.Add(1)
+    go list_tls10(target, ret, &wg)
+
+    wg.Add(1)
+    go list_tls11(target, ret, &wg)
+
+    wg.Add(1)
+    go list_tls12(target, ret, &wg)
+
     wg.Wait()
     close(ret)
 
@@ -77,42 +87,37 @@ func list_tls12(target string, ret chan string, wg *sync.WaitGroup) {
 
     for key, value := range TLS_CIPHERS {
 
-        wg.Add(1)
-        go func(key uint16, value string) {
+        // create a new copy of the hello from the template
+        TLS11_HELLO := make([]byte, len(TLS11_HELLO_TEMPLATE))
+        copy(TLS11_HELLO, TLS11_HELLO_TEMPLATE)
 
-            // create a new copy of the hello from the template
-            TLS11_HELLO := make([]byte, len(TLS11_HELLO_TEMPLATE))
-            copy(TLS11_HELLO, TLS11_HELLO_TEMPLATE)
+        // set the cipher suite we want to check
+        cipherBytes := make([]byte, 2)
+        binary.BigEndian.PutUint16(cipherBytes, key)
+        TLS11_HELLO[46] = cipherBytes[0]
+        TLS11_HELLO[47] = cipherBytes[1]
 
-            // set the cipher suite we want to check
-            cipherBytes := make([]byte, 2)
-            binary.BigEndian.PutUint16(cipherBytes, key)
-            TLS11_HELLO[46] = cipherBytes[0]
-            TLS11_HELLO[47] = cipherBytes[1]
-
-            conn, err := net.Dial("tcp", target)
-            if err != nil {
-                fmt.Println(err)
-                wg.Done()
-                return
-            }
-
-            conn.Write(TLS11_HELLO)
-
-            contentType := make([]byte, 1)
-            io.ReadFull(conn, contentType)
-            conn.Close()
-
-            if contentType[0] == byte(0x16) {
-                // send the supported cipher back to the channel
-                ret <- value
-            }
-
+        conn, err := net.Dial("tcp", target)
+        if err != nil {
+            fmt.Println(err)
             wg.Done()
+            return
+        }
 
-        }(key, value)
+        conn.Write(TLS11_HELLO)
+
+        contentType := make([]byte, 1)
+        io.ReadFull(conn, contentType)
+        conn.Close()
+
+        if contentType[0] == byte(0x16) {
+            // send the supported cipher back to the channel
+            ret <- value
+        }
+
     }
 
+    wg.Done()
     return
 }
 
@@ -142,40 +147,36 @@ func list_tls11(target string, ret chan string, wg *sync.WaitGroup) {
 
     for key, value := range TLS_CIPHERS {
 
-        wg.Add(1)
-        go func(key uint16, value string) {
+        // create a new copy of the hello from the template
+        TLS10_HELLO := make([]byte, len(TLS10_HELLO_TEMPLATE))
+        copy(TLS10_HELLO, TLS10_HELLO_TEMPLATE)
 
-            // create a new copy of the hello from the template
-            TLS10_HELLO := make([]byte, len(TLS10_HELLO_TEMPLATE))
-            copy(TLS10_HELLO, TLS10_HELLO_TEMPLATE)
+        // set the cipher suite we want to check
+        cipherBytes := make([]byte, 2)
+        binary.BigEndian.PutUint16(cipherBytes, key)
+        TLS10_HELLO[46] = cipherBytes[0]
+        TLS10_HELLO[47] = cipherBytes[1]
 
-            // set the cipher suite we want to check
-            cipherBytes := make([]byte, 2)
-            binary.BigEndian.PutUint16(cipherBytes, key)
-            TLS10_HELLO[46] = cipherBytes[0]
-            TLS10_HELLO[47] = cipherBytes[1]
-
-            conn, err := net.Dial("tcp", target)
-            if err != nil {
-                fmt.Println(err)
-                wg.Done()
-                return
-            }
-
-            conn.Write(TLS10_HELLO)
-
-            contentType := make([]byte, 1)
-            io.ReadFull(conn, contentType)
-            conn.Close()
-
-            if contentType[0] == byte(0x16) {
-                ret <- value
-            }
-
+        conn, err := net.Dial("tcp", target)
+        if err != nil {
+            fmt.Println(err)
             wg.Done()
-        }(key, value)
+            return
+        }
+
+        conn.Write(TLS10_HELLO)
+
+        contentType := make([]byte, 1)
+        io.ReadFull(conn, contentType)
+        conn.Close()
+
+        if contentType[0] == byte(0x16) {
+            ret <- value
+        }
+
     }
 
+    wg.Done()
     return
 }
 
@@ -205,40 +206,35 @@ func list_tls10(target string, ret chan string, wg *sync.WaitGroup) {
 
     for key, value := range TLS_CIPHERS {
 
-        wg.Add(1)
-        go func(key uint16, value string) {
-            // create a new copy of the hello from the template
-            TLS10_HELLO := make([]byte, len(TLS10_HELLO_TEMPLATE))
-            copy(TLS10_HELLO, TLS10_HELLO_TEMPLATE)
+        // create a new copy of the hello from the template
+        TLS10_HELLO := make([]byte, len(TLS10_HELLO_TEMPLATE))
+        copy(TLS10_HELLO, TLS10_HELLO_TEMPLATE)
 
-            // set the cipher suite we want to check
-            cipherBytes := make([]byte, 2)
-            binary.BigEndian.PutUint16(cipherBytes, key)
-            TLS10_HELLO[46] = cipherBytes[0]
-            TLS10_HELLO[47] = cipherBytes[1]
+        // set the cipher suite we want to check
+        cipherBytes := make([]byte, 2)
+        binary.BigEndian.PutUint16(cipherBytes, key)
+        TLS10_HELLO[46] = cipherBytes[0]
+        TLS10_HELLO[47] = cipherBytes[1]
 
-            conn, err := net.Dial("tcp", target)
-            if err != nil {
-                fmt.Println(err)
-                wg.Done()
-                return
-            }
-
-            conn.Write(TLS10_HELLO)
-
-            contentType := make([]byte, 1)
-            io.ReadFull(conn, contentType)
-            conn.Close()
-
-            if contentType[0] == byte(0x16) {
-                ret <- value
-            }
-
+        conn, err := net.Dial("tcp", target)
+        if err != nil {
+            fmt.Println(err)
             wg.Done()
+            return
+        }
 
-        }(key, value)
+        conn.Write(TLS10_HELLO)
+
+        contentType := make([]byte, 1)
+        io.ReadFull(conn, contentType)
+        conn.Close()
+
+        if contentType[0] == byte(0x16) {
+            ret <- value
+        }
     }
 
+    wg.Done()
     return
 }
 
@@ -302,40 +298,36 @@ func list_ssl3(target string, ret chan string, wg *sync.WaitGroup) {
 
     for key, value := range SSL3_CIPHERS {
 
-        wg.Add(1)
-        go func(key uint16, value string) {
-            // create a new copy of the hello from the template
-            SSL3_HELLO := make([]byte, len(SSL3_HELLO_TEMPLATE))
-            copy(SSL3_HELLO, SSL3_HELLO_TEMPLATE)
+        // create a new copy of the hello from the template
+        SSL3_HELLO := make([]byte, len(SSL3_HELLO_TEMPLATE))
+        copy(SSL3_HELLO, SSL3_HELLO_TEMPLATE)
 
-            // set the cipher suite we want to check
-            cipherBytes := make([]byte, 2)
-            binary.BigEndian.PutUint16(cipherBytes, key)
-            SSL3_HELLO[46] = cipherBytes[0]
-            SSL3_HELLO[47] = cipherBytes[1]
+        // set the cipher suite we want to check
+        cipherBytes := make([]byte, 2)
+        binary.BigEndian.PutUint16(cipherBytes, key)
+        SSL3_HELLO[46] = cipherBytes[0]
+        SSL3_HELLO[47] = cipherBytes[1]
 
-            conn, err := net.Dial("tcp", target)
-            if err != nil {
-                fmt.Println(err)
-                wg.Done()
-                return
-            }
-
-            conn.Write(SSL3_HELLO)
-
-            contentType := make([]byte, 1)
-            io.ReadFull(conn, contentType)
-            conn.Close()
-
-            if contentType[0] == byte(0x16) {
-                ret <- value
-            }
-
+        conn, err := net.Dial("tcp", target)
+        if err != nil {
+            fmt.Println(err)
             wg.Done()
+            return
+        }
 
-        }(key, value)
+        conn.Write(SSL3_HELLO)
+
+        contentType := make([]byte, 1)
+        io.ReadFull(conn, contentType)
+        conn.Close()
+
+        if contentType[0] == byte(0x16) {
+            ret <- value
+        }
+
     }
 
+    wg.Done()
     return
 }
 
@@ -387,6 +379,7 @@ func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
     serverHelloLength := ((uint16(lengthBytes[0]) & uint16(0x7f)) << 8) | uint16(lengthBytes[1])
 
     if serverHelloLength < 1 {
+        wg.Done()
         return
     }
 
@@ -397,6 +390,7 @@ func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
 
     // [0] - server hello should be 0x04
     if serverHello[0] != 0x04 {
+        wg.Done()
         return
     }
 
@@ -405,6 +399,7 @@ func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
 
     // [3,4] - ssl version 0x00, 0x02
     if binary.BigEndian.Uint16(serverHello[3:5]) != 0x0002 {
+        wg.Done()
         return
     }
 
@@ -416,11 +411,13 @@ func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
 
     // if no ciphers are supported we can just stop now
     if cipherSpecLength == 0x0000 {
+        wg.Done()
         return
     }
 
     // each cipher is 3 bytes, so cipher spec length % 3 should == 0
     if cipherSpecLength % 3 != 0 {
+        wg.Done()
         return
     }
 
@@ -441,6 +438,7 @@ func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
 
     }
 
+    wg.Done()
     return
 }
 
