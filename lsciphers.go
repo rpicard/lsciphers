@@ -6,6 +6,7 @@ import (
     "io"
     "net"
     "os"
+    "os/signal"
     "sort"
     "sync"
 )
@@ -15,11 +16,24 @@ func main() {
         fmt.Printf("Usage: %s <host>[:port]\n", os.Args[0])
         os.Exit(1)
     }
+    // print a newline on ^C
+    go func() {
+        c := make(chan os.Signal, 1)
+        signal.Notify(c, os.Interrupt)
+        for _ = range c {
+            fmt.Println()
+            os.Exit(1)
+        }
+    }()
     for _, target := range os.Args[1:] {
         if _, _, err := net.SplitHostPort(target); err != nil {
             target = net.JoinHostPort(target, "443")
         }
-        ciphers := list(target)
+        bar := NewProgressBar(target, 24)
+        bar.Start()
+        ciphers := list(target, bar)
+        bar.End()
+        bar.Erase()
         fmt.Printf("%s:\n", target)
         for _, cipher := range ciphers {
             fmt.Printf("  %s\n", cipher)
@@ -30,24 +44,24 @@ func main() {
     }
 }
 
-func list(target string) []string {
+func list(target string, bar *ProgressBar) []string {
     ret := make(chan string, 1000)
     var wg sync.WaitGroup
 
     wg.Add(1)
-    go list_ssl2(target, ret, &wg)
+    go list_ssl2(target, ret, &wg, bar)
 
     wg.Add(1)
-    go list_ssl3(target, ret, &wg)
+    go list_ssl3(target, ret, &wg, bar)
 
     wg.Add(1)
-    go list_tls10(target, ret, &wg)
+    go list_tls10(target, ret, &wg, bar)
 
     wg.Add(1)
-    go list_tls11(target, ret, &wg)
+    go list_tls11(target, ret, &wg, bar)
 
     wg.Add(1)
-    go list_tls12(target, ret, &wg)
+    go list_tls12(target, ret, &wg, bar)
 
     wg.Wait()
     close(ret)
@@ -64,7 +78,7 @@ func list(target string) []string {
     return ciphers
 }
 
-func list_tls12(target string, ret chan string, wg *sync.WaitGroup) {
+func list_tls12(target string, ret chan string, wg *sync.WaitGroup, bar *ProgressBar) {
 
     defer wg.Done()
 
@@ -90,6 +104,7 @@ func list_tls12(target string, ret chan string, wg *sync.WaitGroup) {
         0x00,                       // compression methods
     }
 
+    bar.AddTotal(len(TLS_CIPHERS))
     for key, value := range TLS_CIPHERS {
 
         // create a new copy of the hello from the template
@@ -119,12 +134,13 @@ func list_tls12(target string, ret chan string, wg *sync.WaitGroup) {
             ret <- value
         }
 
+        bar.AddProgress(1)
     }
 
     return
 }
 
-func list_tls11(target string, ret chan string, wg *sync.WaitGroup) {
+func list_tls11(target string, ret chan string, wg *sync.WaitGroup, bar *ProgressBar) {
 
     defer wg.Done()
 
@@ -150,6 +166,7 @@ func list_tls11(target string, ret chan string, wg *sync.WaitGroup) {
         0x00,                       // compression methods
     }
 
+    bar.AddTotal(len(TLS_CIPHERS))
     for key, value := range TLS_CIPHERS {
 
         // create a new copy of the hello from the template
@@ -178,12 +195,13 @@ func list_tls11(target string, ret chan string, wg *sync.WaitGroup) {
             ret <- value
         }
 
+        bar.AddProgress(1)
     }
 
     return
 }
 
-func list_tls10(target string, ret chan string, wg *sync.WaitGroup) {
+func list_tls10(target string, ret chan string, wg *sync.WaitGroup, bar *ProgressBar) {
 
     defer wg.Done()
 
@@ -209,6 +227,7 @@ func list_tls10(target string, ret chan string, wg *sync.WaitGroup) {
         0x00,                       // compression methods
     }
 
+    bar.AddTotal(len(TLS_CIPHERS))
     for key, value := range TLS_CIPHERS {
 
         // create a new copy of the hello from the template
@@ -236,12 +255,13 @@ func list_tls10(target string, ret chan string, wg *sync.WaitGroup) {
         if contentType[0] == byte(0x16) {
             ret <- value
         }
+        bar.AddProgress(1)
     }
 
     return
 }
 
-func list_ssl3(target string, ret chan string, wg *sync.WaitGroup) {
+func list_ssl3(target string, ret chan string, wg *sync.WaitGroup, bar *ProgressBar) {
 
     defer wg.Done()
 
@@ -301,6 +321,7 @@ func list_ssl3(target string, ret chan string, wg *sync.WaitGroup) {
         0x00,                       // compression methods
     }
 
+    bar.AddTotal(len(SSL3_CIPHERS))
     for key, value := range SSL3_CIPHERS {
 
         // create a new copy of the hello from the template
@@ -329,12 +350,13 @@ func list_ssl3(target string, ret chan string, wg *sync.WaitGroup) {
             ret <- value
         }
 
+        bar.AddProgress(1)
     }
 
     return
 }
 
-func list_ssl2(target string, ret chan string, wg *sync.WaitGroup) {
+func list_ssl2(target string, ret chan string, wg *sync.WaitGroup, bar *ProgressBar) {
 
     defer wg.Done()
 
