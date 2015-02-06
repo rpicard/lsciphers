@@ -2,9 +2,9 @@
 
 The purpose of this tool is to print out the list of ciphers supported by a host. That's all it does. I don't plan on adding more features. I'm trying to "do one thing well."
 
-Build it with `go build` and put the binary in your path somewhere, like `/usr/local/bin/`.
+Build it with `go build` and put the binary in your path somewhere.
 
-`Usage: ./lsciphers <host>[:port]`
+`Usage: lsciphers <host>[:port]`
 
 The code is messy and could use some cleaning up. I might do this.
 
